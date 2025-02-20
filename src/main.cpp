@@ -214,6 +214,17 @@ void CopyThread(void *args) {
                 *thread_args->packets_read += 1;
                 thread_args->state_mutex->unlock();
             }
+            if (thread_args->state_mutex != nullptr && thread_args->provide_peer_info) {
+                thread_args->state_mutex->lock();
+                if ((*thread_args->peer_ip != addr.sin_addr.s_addr || *thread_args->peer_port != addr.
+                     sin_port) && addr.sin_addr.s_addr && addr.sin_port) {
+                    *thread_args->peer_ip = addr.sin_addr.s_addr;
+                    *thread_args->peer_port = addr.sin_port;
+                    spdlog::info("Updating Peer {}:{}", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+                     }
+                thread_args->state_mutex->unlock();
+            }
+
             // Got a packet, redirect it to the raw socket
             spdlog::debug("{} read packet (size = {})!", thread_args->name, received);
             if (thread_args->fd2_is_socket) {
@@ -229,16 +240,6 @@ void CopyThread(void *args) {
                     thread_args->state_mutex->unlock();
                     sendto(thread_args->fd2, buffer, received, 0, reinterpret_cast<const struct sockaddr *>(&addr),
                            sizeof(addr));
-                    if (thread_args->state_mutex != nullptr && thread_args->provide_peer_info) {
-                        thread_args->state_mutex->lock();
-                        if ((*thread_args->peer_ip != addr.sin_addr.s_addr || *thread_args->peer_port != addr.
-                             sin_port) && addr.sin_addr.s_addr && addr.sin_port) {
-                            *thread_args->peer_ip = addr.sin_addr.s_addr;
-                            *thread_args->peer_port = addr.sin_port;
-                            spdlog::info("Updating Peer {}:{}", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-                             }
-                        thread_args->state_mutex->unlock();
-                    }
                 }
             } else {
                 // fd2 is a file
@@ -495,7 +496,7 @@ int StartClient(const ClientConfig &config) {
 }
 
 int main(int argc, char **argv) {
-    spdlog::set_level(spdlog::level::info);
+    spdlog::set_level(spdlog::level::debug);
     CLI::App app{"etherbridge helps tapping into networks for debugging"};
     argv = app.ensure_utf8(argv);
 

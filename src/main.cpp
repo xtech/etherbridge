@@ -496,7 +496,7 @@ int StartClient(const ClientConfig &config) {
 }
 
 int main(int argc, char **argv) {
-    spdlog::set_level(spdlog::level::debug);
+    spdlog::set_level(spdlog::level::info);
     CLI::App app{"etherbridge helps tapping into networks for debugging"};
     argv = app.ensure_utf8(argv);
 

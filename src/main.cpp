@@ -520,11 +520,8 @@ int main(int argc, char **argv) {
     CLI11_PARSE(app, argc, argv);
 
     if (server_subcommand->parsed()) {
-        StartServer(server_config);
+        return -StartServer(server_config);
     } else if (client_subcommand->parsed()) {
-        StartClient(client_config);
+        return -StartClient(client_config);
     }
-
-
-    return 0;
 }

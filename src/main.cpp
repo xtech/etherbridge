@@ -367,7 +367,7 @@ int StartServer(const ServerConfig &config) {
                              raw_bytes_read, udp_packets_read, udp_bytes_read);
                 raw_packets_read = raw_bytes_read = udp_packets_read = udp_bytes_read = 0;
                 state_mutex.unlock();
-                sleep(1);
+                sleep(10);
             }
         }
     };
@@ -483,7 +483,7 @@ int StartClient(const ClientConfig &config) {
                              raw_bytes_read, udp_packets_read, udp_bytes_read);
                 raw_packets_read = raw_bytes_read = udp_packets_read = udp_bytes_read = 0;
                 state_mutex.unlock();
-                sleep(1);
+                sleep(10);
             }
         }
     };

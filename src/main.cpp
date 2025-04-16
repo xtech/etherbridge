@@ -39,7 +39,7 @@ inline std::string IpIntToString(const uint32_t ip) {
 int SetupRawSocket(const std::string &interface, uint8_t *mac_address) {
     // Find the index of the interface
     unsigned int idx = if_nametoindex(interface.c_str());
-    if (errno) {
+    if (idx == 0) {
         spdlog::error("Error getting index for interface {}: {}", interface, strerror(errno));
         return -1;
     }

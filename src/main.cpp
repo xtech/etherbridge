@@ -249,7 +249,7 @@ void CopyThread(void *args) {
     }
 }
 
-int CreateTapDevice(const std::string &ip_to_use) {
+int CreateTapDevice(const std::string &ip_to_use, const std::string &netmask) {
     struct ifreq ifr{};
     int fd;
 
@@ -275,7 +275,7 @@ int CreateTapDevice(const std::string &ip_to_use) {
     }
 
 
-    // Set the IP address and set the device as up
+    // Set the IP address and netmask, then set the device as up
     struct sockaddr_in sin{};
     sin.sin_addr.s_addr = inet_addr(ip_to_use.c_str());
     sin.sin_family = AF_INET;
@@ -283,6 +283,15 @@ int CreateTapDevice(const std::string &ip_to_use) {
     memcpy(&ifr.ifr_ifru.ifru_addr, &sin, sizeof(sin));
     if (ioctl(config_sockfd, SIOCSIFADDR, &ifr) < 0) {
         spdlog::error("error SIOCSIFADDR");
+        close(config_sockfd);
+        close(fd);
+        return -1;
+    }
+
+    sin.sin_addr.s_addr = inet_addr(netmask.c_str());
+    memcpy(&ifr.ifr_netmask, &sin, sizeof(sin));
+    if (ioctl(config_sockfd, SIOCSIFNETMASK, &ifr) < 0) {
+        spdlog::error("error SIOCSIFNETMASK");
         close(config_sockfd);
         close(fd);
         return -1;
@@ -416,7 +425,7 @@ int StartClient(const ClientConfig &config) {
                  config.peer_ip, BIND_PORT);
 
 
-    int tap_fd = CreateTapDevice(config.bridge_ip);
+    int tap_fd = CreateTapDevice(config.bridge_ip, "255.255.255.0");
 
     // Resolve the remote peer
     addrinfo *addrinfo = nullptr;

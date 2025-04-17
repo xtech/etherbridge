@@ -14,6 +14,7 @@
 #include <CLI11.hpp>
 #include <fcntl.h>
 #include <atomic>
+#include <csignal>
 #include <cstdio>
 #include <cstring>
 #include <netdb.h>
@@ -28,6 +29,13 @@ inline std::string IpIntToString(const uint32_t ip) {
     in_addr addr{.s_addr = ntohl(ip)};
     const char *addrStr = inet_ntoa(addr);
     return addrStr;
+}
+
+static std::atomic_bool should_stop{false};
+
+void signal_handler(int) {
+    spdlog::info("Stopping!");
+    should_stop.exchange(true);
 }
 
 /**
@@ -331,7 +339,6 @@ int StartServer(const ServerConfig &config) {
         return -3;
     }
 
-    std::atomic_bool should_stop{false};
     std::mutex state_mutex{};
     uint32_t peer_ip = 0;
     uint16_t peer_port = 0;
@@ -367,7 +374,9 @@ int StartServer(const ServerConfig &config) {
                              raw_bytes_read, udp_packets_read, udp_bytes_read);
                 raw_packets_read = raw_bytes_read = udp_packets_read = udp_bytes_read = 0;
                 state_mutex.unlock();
-                sleep(10);
+                for (int i = 0; i < 1000 && !should_stop.load(); i++) {
+                    usleep(10000);
+                }
             }
         }
     };
@@ -432,7 +441,6 @@ int StartClient(const ClientConfig &config) {
         return -1;
     }
 
-    std::atomic_bool should_stop{false};
     std::mutex state_mutex{};
     uint32_t peer_ip = reinterpret_cast<const sockaddr_in*>(addrinfo->ai_addr)->sin_addr.s_addr;
     uint16_t peer_port = htons(BIND_PORT);
@@ -483,7 +491,9 @@ int StartClient(const ClientConfig &config) {
                              raw_bytes_read, udp_packets_read, udp_bytes_read);
                 raw_packets_read = raw_bytes_read = udp_packets_read = udp_bytes_read = 0;
                 state_mutex.unlock();
-                sleep(10);
+                for (int i = 0; i < 10 && !should_stop.load(); i++) {
+                    usleep(1000000);
+                }
             }
         }
     };
@@ -518,6 +528,8 @@ int main(int argc, char **argv) {
 
 
     CLI11_PARSE(app, argc, argv);
+
+    signal(SIGINT, signal_handler);
 
     if (server_subcommand->parsed()) {
         return -StartServer(server_config);

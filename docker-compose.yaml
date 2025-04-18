@@ -1,0 +1,19 @@
+services:
+  server:
+    image: ghcr.io/xtech/etherbridge:main
+    container_name: etherbridge-server
+    command: server -e ${EXTERNAL_INTERFACE:-wlan0} -i ${INTERNAL_INTERFACE:-eth0}
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
+    profiles:
+    - server
+  client:
+    image: ghcr.io/xtech/etherbridge:main
+    container_name: etherbridge-client
+    command: client --peer ${PEER:-robot.local} --bridge ${BRIDGE_IP:-172.16.78.2}
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
+    profiles:
+    - client

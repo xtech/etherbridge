@@ -59,6 +59,16 @@ int SetupRawSocket(const std::string &interface, uint8_t *mac_address) {
         return -1;
     }
 
+    struct timeval timeout;
+    timeout.tv_sec = 1;      // 1 second
+    timeout.tv_usec = 0;     // 0 microseconds
+
+    // Set receive timeout
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        perror("setsockopt failed");
+        return -1;
+    }
+
     // Bind raw socket to the internal interface via index (via name not possible with AF_PACKET)
     sockaddr_ll saddr{};
     saddr.sll_family = AF_PACKET;
@@ -138,6 +148,16 @@ uint32_t GetIPFromInterfaceName(const std::string &interface_name, uint32_t *net
 int GetUDPSocket(uint32_t bind_ip, uint16_t bind_port) {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
 
+    struct timeval timeout;
+    timeout.tv_sec = 1;      // 1 second
+    timeout.tv_usec = 0;     // 0 microseconds
+
+    // Set receive timeout
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        perror("setsockopt failed");
+        return -1;
+    }
+
     // Bind Socket
     sockaddr_in saddr{};
     saddr.sin_family = AF_INET;
@@ -207,14 +227,39 @@ void CopyThread(void *args) {
             } else {
                 received = recv(thread_args->fd1, buffer, sizeof(buffer), 0);
             }
+            if (received < 0) {
+                if (errno != EAGAIN) {
+                    spdlog::warn("Error during recvfrom: {} [{}]", strerror(errno), thread_args->name);
+                }
+                continue;
+            }
         } else {
             // fd1 is fd
-            received = read(thread_args->fd1, buffer, sizeof(buffer));
+            fd_set fds;
+            struct timeval timeout;
+
+            FD_ZERO(&fds);
+            FD_SET(thread_args->fd1, &fds);
+
+            timeout.tv_sec = 1;
+            timeout.tv_usec = 0;
+
+            int ret = select(thread_args->fd1 + 1, &fds, NULL, NULL, &timeout);
+            if (ret == 0) {
+                received = 0;
+            } else if (ret > 0) {
+                // fd is ready
+                received = read(thread_args->fd1, buffer, sizeof(buffer));
+            } else {
+                // Error, pass it on
+                received = ret;
+            }
         }
-        if (received == -1) {
-            spdlog::warn("Error during recvfrom: {} [{}]", strerror(errno), thread_args->name);
+        if (received == 0) {
+            // timeout
             continue;
         }
+
         if (received > 0) {
             if (thread_args->state_mutex != nullptr) {
                 thread_args->state_mutex->lock();
